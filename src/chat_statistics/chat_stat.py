@@ -53,7 +53,11 @@ class ChatStatistics:
                                    "]+", flags=re.UNICODE)
         return weirdPatterns.sub(r'', text)
 
-    def generate_word_cloud(self, outputdir: Union[str, Path]):
+    def generate_word_cloud(self,
+                            outputdir: Union[str, Path],
+                            width: int = 800, height: int = 600,
+                            background_color: str = 'white',
+                            max_font_size: int = 130):
         logger.info('digging data')
         chat_content = ''
         # dig in to text data
@@ -74,11 +78,11 @@ class ChatStatistics:
 
         logger.info('generating word cloud')
         wordcloud = WordCloud(
-            width=600,
-            height=400,
+            width=width,
+            height=height,
             font_path=str(Data_dir / 'Font/NotoNaskhArabic-Regular.ttf'),
-            background_color='white',
-            max_font_size=130
+            background_color=background_color,
+            max_font_size=max_font_size
         ).generate(chat_content)
 
         logger.info(f'saving word cloud to {outputdir}')
@@ -88,8 +92,7 @@ class ChatStatistics:
 
 if __name__ == "__main__":
     # add your taraget json file in the string
-    chat_stasts = ChatStatistics(chat_json=Data_dir / 'key+ajnabi.json')
+    chat_stasts = ChatStatistics(chat_json=Data_dir / 'mygroupchat.json')
     chat_stasts.generate_word_cloud(Data_dir)
 
     logger.info('Done!')
-
