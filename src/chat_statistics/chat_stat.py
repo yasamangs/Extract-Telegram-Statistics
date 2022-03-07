@@ -1,5 +1,6 @@
 import json
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Union
 
@@ -18,8 +19,8 @@ class ChatStatistics:
     # load stopwords
     normalizer = Normalizer()
     stop_words = open(Data_dir / 'stopwords.txt').readlines()
-    stop_words = list(map(str.strip, stop_words))
-    stop_words = list(map(normalizer.normalize, stop_words))
+    stop_words = map(str.strip, stop_words)
+    stop_words = set(map(normalizer.normalize, stop_words))
 
     def __init__(self, chat_json: Union[str, Path]):
         logger.info(f'loading chat data from {chat_json}')
@@ -27,7 +28,8 @@ class ChatStatistics:
             # load data
             self.chat_data = json.load(f)
 
-    def removeWeirdChars(self, text):
+    @staticmethod
+    def removeWeirdChars(text):
         weirdPatterns = re.compile("["
                                    u"\U0001F600-\U0001F64F"  # emoticons
                                    u"\U0001F300-\U0001F5FF"  # symbols & pictographs
@@ -52,6 +54,18 @@ class ChatStatistics:
                                    u"\u2067"
                                    "]+", flags=re.UNICODE)
         return weirdPatterns.sub(r'', text)
+
+    @staticmethod
+    def rebuild_msg(msg):
+        msg_text = ''
+        for submsg in msg:
+            if isinstance(submsg, str):
+                msg_text += submsg
+            elif 'text' in submsg:
+                if isinstance(submsg, str):
+                    msg_text += submsg['text']
+
+        return msg_text
 
     def generate_word_cloud(self,
                             outputdir: Union[str, Path],
@@ -89,10 +103,43 @@ class ChatStatistics:
         # Export to an image
         wordcloud.to_file(str(Path(outputdir) / "World_Cloud.png"))
 
+    def catch_questions(self, msg_id):
+        """
+        check if a msg has a question mark in it
+        """
+
+        for msg in self.chat_data['messages']:
+            if msg['id'] != msg_id:
+                continue
+
+            if not isinstance(msg['text'], str):
+                msg['text'] = self.rebuild_msg(msg['text'])
+
+            if not (msg['text'].__contains__('?')) and not (msg['text'].__contains__('؟')):
+                continue
+
+            return True
+
+    def get_top_users(self, top_n: int = 10):
+        """
+        Get n top usrs based on the number of their replies to other usrs questions
+        """
+        logger.info(f'Getting top {top_n} users')
+        users = []
+        for msg in self.chat_data['messages']:
+            if not msg.get("reply_to_message_id"):
+                continue
+
+            if self.catch_questions(msg["reply_to_message_id"]):
+                users.append(msg["from"])
+
+        return dict(Counter(users).most_common(top_n))
+
 
 if __name__ == "__main__":
     # add your taraget json file in the string
-    chat_stasts = ChatStatistics(chat_json=Data_dir / 'mygroupchat.json')
-    chat_stasts.generate_word_cloud(Data_dir)
+    mygroup = ChatStatistics(chat_json=Data_dir / 'yourTargetData.json')
+    mygroup.generate_word_cloud(Data_dir)
+    print(mygroup.get_top_users())
 
     logger.info('Done!')
